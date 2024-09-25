@@ -38,6 +38,19 @@ def register_user(request):
     except Exception as e:
         return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    try:
+        user = request.user  # Get the currently authenticated user
+        return Response({
+            'id': user.id,
+            'email': user.email,
+            'username': user.username,
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def add_user_lunch_preference(request):
