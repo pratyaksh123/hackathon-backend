@@ -1,6 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q
 from .serializers import LunchPreferenceSerializer, TopicSerializer
 from .models import LunchPreference, Match, Topic
@@ -8,12 +8,38 @@ from django.contrib.auth.models import User
 from background_task import background
 from datetime import datetime
 from .matcher import match_users_for_date
+from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class TopicViewSet(viewsets.ModelViewSet):
     queryset = Topic.objects.all()  # Queryset for the viewset
     serializer_class = TopicSerializer  # Serializer for the viewset
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    data = request.data
+    try:
+        user = User.objects.create(
+            username=data['email'],
+            email=data['email'],
+            password=make_password(data['password'])
+        )
+        user.save()
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def add_user_lunch_preference(request):
     print("Received data:", request.data)  # Log incoming request data
     serializer = LunchPreferenceSerializer(data=request.data)

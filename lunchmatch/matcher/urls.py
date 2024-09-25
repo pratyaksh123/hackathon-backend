@@ -2,7 +2,10 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from .views import TopicViewSet
-
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 from django.urls import path
 from . import views
 
@@ -18,4 +21,7 @@ urlpatterns = [
     path('preferences/add/', views.add_user_lunch_preference, name='add-user-lunch-preference'),
     path('preferences/<int:user_id>/', views.get_user_lunch_preference, name='get-user-lunch-preference'),
     path('user/<int:user_id>/matches/<str:date>/', views.get_match, name='get-match'),
+    path('register/', views.register_user, name='register'),
+    path('login/', TokenObtainPairView.as_view(), name='login'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
