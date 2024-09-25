@@ -1,23 +1,48 @@
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .serializers import LunchPreferenceSerializer
-from .models import LunchPreference, Match
+from django.db.models import Q
+from .serializers import LunchPreferenceSerializer, TopicSerializer
+from .models import LunchPreference, Match, Topic
 from django.contrib.auth.models import User
 from background_task import background
 from datetime import datetime
 from .matcher import match_users_for_date
 
+class TopicViewSet(viewsets.ModelViewSet):
+    queryset = Topic.objects.all()  # Queryset for the viewset
+    serializer_class = TopicSerializer  # Serializer for the viewset
+
 @api_view(['POST'])
 def add_user_lunch_preference(request):
     print("Received data:", request.data)  # Log incoming request data
     serializer = LunchPreferenceSerializer(data=request.data)
+
     if serializer.is_valid():
         try:
-            instance = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            user = request.data.get('user')  # Fetch the user from the request data
+            date = request.data.get('date')  # Fetch the date from the request data
+
+            # Check if a lunch preference already exists for the user and date
+            existing_preference = LunchPreference.objects.filter(user=user, date=date).first()
+
+            if existing_preference:
+                # Update the existing preference with new data
+                serializer = LunchPreferenceSerializer(existing_preference, data=request.data, partial=True)
+                if serializer.is_valid():
+                    instance = serializer.save()
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            else:
+                # Create a new preference if none exists
+                instance = serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     else:
         print("Validation errors:", serializer.errors)  # Log validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -39,8 +64,8 @@ def get_match(request, user_id, date):
         matches = Match.objects.filter(date=match_date).filter(Q(user1=user) | Q(user2=user))
         
         result = [{
-            'user1': match.user1.email,
-            'user2': match.user2.email,
+            'user1': match.user1.id,
+            'user2': match.user2.id,
             'score': match.score,
             'date': match.date.strftime("%Y-%m-%d")
         } for match in matches]
@@ -68,8 +93,8 @@ def get_matches_for_date(request, date):
         match_date = datetime.strptime(date, "%Y-%m-%d").date()
         matches = Match.objects.filter(date=match_date)
         result = [{
-            'user1': match.user1.email,
-            'user2': match.user2.email,
+            'user1': match.user1.id,
+            'user2': match.user2.id,
             'score': match.score,
             'date': match.date
         } for match in matches]
