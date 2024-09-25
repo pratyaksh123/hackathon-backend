@@ -5,7 +5,7 @@ from .serializers import LunchPreferenceSerializer
 from .models import LunchPreference, Match
 from django.contrib.auth.models import User
 from background_task import background
-import datetime
+from datetime import datetime
 from .matcher import match_users_for_date
 
 @api_view(['POST'])
@@ -57,8 +57,8 @@ def get_match(request, user_id, date):
 def trigger_matching(request, date):
     try:
         match_date = datetime.strptime(date, "%Y-%m-%d").date()
-        match_users_for_date(match_date)
-        return Response({'status': 'Matching started for date: ' + date}, status=status.HTTP_200_OK)
+        matches_created = match_users_for_date(match_date)
+        return Response({'status': f"{matches_created } matches created for date: " + date}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -76,3 +76,21 @@ def get_matches_for_date(request, date):
         return Response(result)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+def delete_matches_for_date(request, date):
+    try:
+        # Parse the date string into a datetime object
+        match_date = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Delete all matches for the given date
+        matches_deleted, _ = Match.objects.filter(date=match_date).delete()
+        
+        if matches_deleted > 0:
+            return Response({'status': f'{matches_deleted} matches deleted for date: {date}'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status': 'No matches found for the given date'}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError:
+        return Response({'error': 'Invalid date format. Please use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
